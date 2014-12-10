@@ -32,6 +32,7 @@ public class SAMLResponseVerifier {
     public void verify(SAMLMessageContext<Response, SAMLObject, NameID> samlMessageContext)
             throws SAMLException {
         Response samlResponse = samlMessageContext.getInboundSAMLMessage();
+        
         log.debug("SAML Response message : {}", SAMLUtils.SAMLObjectToString(samlResponse));
         verifyInResponseTo(samlResponse);
         Status status = samlResponse.getStatus();

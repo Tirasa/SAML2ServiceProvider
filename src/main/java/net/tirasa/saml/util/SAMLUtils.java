@@ -13,7 +13,7 @@ import org.opensaml.common.SAMLObject;
 import org.opensaml.common.binding.BasicSAMLMessageContext;
 import org.opensaml.common.binding.SAMLMessageContext;
 import org.opensaml.common.xml.SAMLConstants;
-import org.opensaml.saml1.binding.decoding.HTTPPostDecoder;
+import org.opensaml.saml2.binding.decoding.HTTPPostDecoder;
 import org.opensaml.saml2.core.NameID;
 import org.opensaml.saml2.metadata.IDPSSODescriptor;
 import org.opensaml.ws.security.SecurityPolicy;
@@ -39,8 +39,9 @@ public class SAMLUtils {
         HttpServletRequestAdapter httpServletRequestAdapter = new HttpServletRequestAdapter(request);
         samlMessageContext.setInboundMessageTransport(httpServletRequestAdapter);
         samlMessageContext.setInboundSAMLProtocol(SAMLConstants.SAML20P_NS);
-        HttpServletResponseAdapter httpServletResponseAdapter = new HttpServletResponseAdapter(response, request.
-                isSecure());
+        
+        HttpServletResponseAdapter httpServletResponseAdapter = 
+                new HttpServletResponseAdapter(response, request.isSecure());
         samlMessageContext.setOutboundMessageTransport(httpServletResponseAdapter);
         samlMessageContext.setPeerEntityRole(IDPSSODescriptor.DEFAULT_ELEMENT_NAME);
 
@@ -48,7 +49,9 @@ public class SAMLUtils {
 
         samlMessageContext.setSecurityPolicyResolver(securityPolicyResolver);
         HTTPPostDecoder samlMessageDecoder = new HTTPPostDecoder();
+        
         samlMessageDecoder.decode(samlMessageContext);
+        
         return samlMessageContext;
     }
 

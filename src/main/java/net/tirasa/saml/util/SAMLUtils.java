@@ -1,5 +1,5 @@
 /* 
- * Copyright 2014 Expression project.organization is undefined on line 4, column 57 in unknown..
+ * Copyright 2014 Tirasa.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.

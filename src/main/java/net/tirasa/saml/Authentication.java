@@ -11,8 +11,6 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import org.opensaml.DefaultBootstrap;
-import org.opensaml.xml.ConfigurationException;
 
 /**
  *
@@ -21,14 +19,6 @@ import org.opensaml.xml.ConfigurationException;
 public class Authentication extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
-    
-    static {
-        try {
-            DefaultBootstrap.bootstrap();
-        } catch (ConfigurationException ex) {
-            ex.printStackTrace();
-        }
-    }
 
     /**
      * Processes requests for both HTTP <code>GET</code> and <code>POST</code> methods.

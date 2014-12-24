@@ -1,51 +1,67 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+/* 
+ * Copyright 2014 Expression project.organization is undefined on line 4, column 57 in unknown..
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package net.tirasa.saml;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.security.KeyStore;
+import java.util.HashMap;
+import java.util.Map;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import net.tirasa.saml.util.Constants;
+import net.tirasa.saml.util.Properties;
 import org.opensaml.Configuration;
-import org.opensaml.DefaultBootstrap;
 import org.opensaml.common.SAMLObjectBuilder;
 import org.opensaml.common.xml.SAMLConstants;
 import org.opensaml.saml2.metadata.AssertionConsumerService;
 import org.opensaml.saml2.metadata.EntityDescriptor;
+import org.opensaml.saml2.metadata.KeyDescriptor;
 import org.opensaml.saml2.metadata.NameIDFormat;
 import org.opensaml.saml2.metadata.SPSSODescriptor;
-import org.opensaml.xml.ConfigurationException;
 import org.opensaml.xml.XMLObjectBuilderFactory;
 import org.opensaml.xml.io.Marshaller;
+import org.opensaml.xml.io.MarshallingException;
+import org.opensaml.xml.security.CriteriaSet;
+import org.opensaml.xml.security.credential.Credential;
+import org.opensaml.xml.security.credential.KeyStoreCredentialResolver;
+import org.opensaml.xml.security.credential.UsageType;
+import org.opensaml.xml.security.criteria.EntityIDCriteria;
+import org.opensaml.xml.security.keyinfo.KeyInfoGenerator;
+import org.opensaml.xml.security.x509.X509KeyInfoGeneratorFactory;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 
-/**
- *
- * @author fabio
- */
 public class Metadata extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
 
-    static {
-        try {
-            DefaultBootstrap.bootstrap();
-        } catch (ConfigurationException ex) {
-            ex.printStackTrace();
-        }
-    }
+    private static final org.slf4j.Logger log = LoggerFactory.getLogger(Metadata.class);
 
     /**
      * Processes requests for both HTTP
@@ -65,81 +81,85 @@ public class Metadata extends HttpServlet {
         final XMLObjectBuilderFactory bf = Configuration.getBuilderFactory();
 
         // Create the EntityDescriptor
+        @SuppressWarnings("unchecked")
         final SAMLObjectBuilder<EntityDescriptor> entityDescriptorBuilder = (SAMLObjectBuilder<EntityDescriptor>) bf.
                 getBuilder(EntityDescriptor.DEFAULT_ELEMENT_NAME);
 
         final EntityDescriptor spEntityDescriptor = entityDescriptorBuilder.buildObject();
 
-        spEntityDescriptor.setEntityID("http://localhost:9080/");
+        spEntityDescriptor.setEntityID(Properties.getString(Constants.ENTITYID, request.getRequestURL().toString()));
+
+        @SuppressWarnings("unchecked")
         final SAMLObjectBuilder<SPSSODescriptor> spSSODescriptorBuilder = (SAMLObjectBuilder<SPSSODescriptor>) bf.
                 getBuilder(SPSSODescriptor.DEFAULT_ELEMENT_NAME);
 
-        SPSSODescriptor spSSODescriptor = spSSODescriptorBuilder.buildObject();
+        final SPSSODescriptor spSSODescriptor = spSSODescriptorBuilder.buildObject();
 
-        spSSODescriptor.setWantAssertionsSigned(false);
-        spSSODescriptor.setAuthnRequestsSigned(false);
+        spSSODescriptor.setWantAssertionsSigned(Properties.getBoolean(Constants.ASS_SIGN, false));
+        spSSODescriptor.setAuthnRequestsSigned(Properties.getBoolean(Constants.AUTH_SIGN, false));
 
-        /*
-         * X509KeyInfoGeneratorFactory keyInfoGeneratorFactory = new X509KeyInfoGeneratorFactory();
-         *
-         * keyInfoGeneratorFactory.setEmitEntityCertificate (
-         *
-         *
-         * true);
-         * KeyInfoGenerator keyInfoGenerator = keyInfoGeneratorFactory.newInstance();
-         *
-         * KeyDescriptor encKeyDescriptor = SAMLUtil.buildSAMLObjectWithDefaultName(KeyDescriptor.class);
-         *
-         * encKeyDescriptor.setUse (UsageType.ENCRYPTION); //Set usage
-         *
-         * // Generating key info. The element will contain the public key. The key is used to by the IDP to encrypt
-         * data
-         *
-         * try {
-         * encKeyDescriptor.setKeyInfo(keyInfoGenerator.generate(X509Credential));
-         * }
-         *
-         * catch (SecurityException e
-         *
-         *
-         * ) {
-         * log.error(e.getMessage(), e);
-         * }
-         *
-         * spSSODescriptor.getKeyDescriptors ()
-         *
-         * .add(encKeyDescriptor);
-         *
-         * KeyDescriptor signKeyDescriptor = SAMLUtil.buildSAMLObjectWithDefaultName(KeyDescriptor.class);
-         *
-         * signKeyDescriptor.setUse (UsageType.SIGNING); //Set usage
-         *
-         * // Generating key info. The element will contain the public key. The key is used to by the IDP to verify
-         * signatures
-         *
-         * try {
-         * signKeyDescriptor.setKeyInfo(keyInfoGenerator.generate(X509Credential));
-         * }
-         *
-         * catch (SecurityException e
-         *
-         *
-         * ) {
-         * log.error(e.getMessage(), e);
-         * }
-         *
-         * spSSODescriptor.getKeyDescriptors ()
-         *
-         * .add(signKeyDescriptor);
-         */
-        // Request transient pseudonym
+        final X509KeyInfoGeneratorFactory keyInfoGeneratorFactory = new X509KeyInfoGeneratorFactory();
+
+        keyInfoGeneratorFactory.setEmitEntityCertificate(true);
+        KeyInfoGenerator keyInfoGenerator = keyInfoGeneratorFactory.newInstance();
+
+        try {
+
+            final Credential credential = getCredential();
+
+            if (spSSODescriptor.getWantAssertionsSigned()) {
+
+                @SuppressWarnings("unchecked")
+                final SAMLObjectBuilder<KeyDescriptor> keyDescriptorBuilder = (SAMLObjectBuilder<KeyDescriptor>) bf.
+                        getBuilder(KeyDescriptor.DEFAULT_ELEMENT_NAME);
+
+                KeyDescriptor encKeyDescriptor = keyDescriptorBuilder.buildObject();
+
+                encKeyDescriptor.setUse(UsageType.ENCRYPTION);
+
+                try {
+                    encKeyDescriptor.setKeyInfo(keyInfoGenerator.generate(credential));
+                    spSSODescriptor.getKeyDescriptors().add(encKeyDescriptor);
+                } catch (org.opensaml.xml.security.SecurityException e) {
+                    log.error("Error generating credentials", e);
+                }
+            }
+
+            if (spSSODescriptor.isAuthnRequestsSigned()) {
+
+                @SuppressWarnings("unchecked")
+                final SAMLObjectBuilder<KeyDescriptor> keyDescriptorBuilder = (SAMLObjectBuilder<KeyDescriptor>) bf.
+                        getBuilder(KeyDescriptor.DEFAULT_ELEMENT_NAME);
+
+                KeyDescriptor signKeyDescriptor = keyDescriptorBuilder.buildObject();
+
+                signKeyDescriptor.setUse(UsageType.SIGNING);
+
+                try {
+                    signKeyDescriptor.setKeyInfo(keyInfoGenerator.generate(credential));
+                    spSSODescriptor.getKeyDescriptors().add(signKeyDescriptor);
+                } catch (org.opensaml.xml.security.SecurityException e) {
+                    log.error("Error generating credentials", e);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error retrieving credentials", e);
+        }
+
+        @SuppressWarnings("unchecked")
         final SAMLObjectBuilder<NameIDFormat> nameIDFormatBuilder = (SAMLObjectBuilder<NameIDFormat>) bf.getBuilder(
                 NameIDFormat.DEFAULT_ELEMENT_NAME);
 
-        NameIDFormat nameIDFormat = nameIDFormatBuilder.buildObject();
-        nameIDFormat.setFormat("urn:oasis:names:tc:SAML:2.0:nameid-format:persistent");
-        spSSODescriptor.getNameIDFormats().add(nameIDFormat);
+        String[] formats = Properties.getStringArray(
+                Constants.FORMATS, new String[] { "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent" });
 
+        for (String format : formats) {
+            NameIDFormat nameIDFormat = nameIDFormatBuilder.buildObject();
+            nameIDFormat.setFormat(format);
+            spSSODescriptor.getNameIDFormats().add(nameIDFormat);
+        }
+
+        @SuppressWarnings("unchecked")
         final SAMLObjectBuilder<AssertionConsumerService> assertionConsumerServiceBuilder =
                 (SAMLObjectBuilder<AssertionConsumerService>) bf.getBuilder(
                 AssertionConsumerService.DEFAULT_ELEMENT_NAME);
@@ -149,7 +169,9 @@ public class Metadata extends HttpServlet {
         assertionConsumerService.setBinding(SAMLConstants.SAML2_ARTIFACT_BINDING_URI);
 
         // Setting address for our AssertionConsumerService
-        assertionConsumerService.setLocation("http://localhost:9080/saml2sp/assertion-consumer-service");
+        assertionConsumerService.setLocation(
+                Properties.getString(Constants.CONSUMER, request.getRequestURL().toString()));
+
         spSSODescriptor.getAssertionConsumerServices().add(assertionConsumerService);
 
         spSSODescriptor.addSupportedProtocol(SAMLConstants.SAML20P_NS);
@@ -176,8 +198,9 @@ public class Metadata extends HttpServlet {
             try (PrintWriter writer = response.getWriter()) {
                 writer.println(metadataXML);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (ParserConfigurationException | MarshallingException | TransformerException | IOException e) {
+            log.error("Errr generating metadata", e);
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
         }
     }
 
@@ -221,4 +244,31 @@ public class Metadata extends HttpServlet {
     public String getServletInfo() {
         return "Short description";
     }// </editor-fold>
+
+    private Credential getCredential() throws Exception {
+        final KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+        final String keystorePath = Properties.getString(Constants.KEYSTORE);
+
+        log.debug("Loading {} kestore {}", keystore.getType(), keystorePath);
+
+        try (final FileInputStream inputStream = new FileInputStream(keystorePath)) {
+            keystore.load(inputStream, Properties.getString(Constants.STOREPASS, "changeit").toCharArray());
+            log.debug("Loaded");
+        }
+
+        final String alias = Properties.getString(Constants.CERT_ALIAS, "test");
+
+        log.debug("Loading certificate .... {}", alias);
+
+        final Map<String, String> passwordMap = new HashMap<>();
+        passwordMap.put(alias, Properties.getString(Constants.KEYPASS, "changeit"));
+
+        final KeyStoreCredentialResolver resolver = new KeyStoreCredentialResolver(keystore, passwordMap);
+
+        final Credential credential = resolver.resolveSingle(new CriteriaSet(new EntityIDCriteria(alias)));
+
+        log.debug("Loaded");
+
+        return credential;
+    }
 }

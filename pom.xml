@@ -8,6 +8,10 @@
   <version>1.0-SNAPSHOT</version>
   <packaging>war</packaging>
 
+  <organization>
+    <name>Tirasa</name>
+  </organization>
+  
   <name>SAML2ServiceProvider</name>
 
   <url>http://www.tirasa.net</url>

@@ -14,34 +14,26 @@
  * limitations under the License.
  */
 
-package net.tirasa.saml.store;
+package net.tirasa.saml.util;
 
-import java.util.Date;
-import java.util.Map;
+public class Constants {
 
-public class SAMLSessionInfo {
+    public final static String ENTITYID = "entityID";
 
-    private String nameId;
+    public final static String FORMATS = "nameID.formats";
 
-    private Map<String, String> attributes;
+    public final static String CONSUMER = "assertion.consumer.service";
 
-    private Date validTo;
+    public final static String ASS_SIGN = "assertion.signed";
 
-    public SAMLSessionInfo(String nameId, Map<String, String> attributes, Date validTo) {
-        this.nameId = nameId;
-        this.attributes = attributes;
-        this.validTo = validTo;
-    }
+    public final static String AUTH_SIGN = "authentication.signed";
 
-    public String getNameId() {
-        return nameId;
-    }
+    public final static String KEYSTORE = "keystore";
 
-    public Map<String, String> getAttributes() {
-        return attributes;
-    }
+    public final static String STOREPASS = "storepass";
 
-    public Date getValidTo() {
-        return validTo;
-    }
+    public final static String KEYPASS = "keypass";
+
+    public final static String CERT_ALIAS = "certificate.alias";
+
 }

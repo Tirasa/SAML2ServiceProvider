@@ -38,13 +38,17 @@ limitations under the License.
     <url-pattern>/assertion-consumer-service</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
+    <servlet-name>Consumer</servlet-name>
+    <url-pattern>/logout</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
     <servlet-name>Metadata</servlet-name>
     <url-pattern>/metadata</url-pattern>
   </servlet-mapping>
   
   <listener>
     <listener-class>
-      net.tirasa.saml.SPContextListener 
+      net.tirasa.saml.context.SPContextListener 
     </listener-class>
   </listener>
 </web-app>

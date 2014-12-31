@@ -13,17 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package net.tirasa.saml;
+package net.tirasa.saml.context;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FilenameFilter;
 import java.io.InputStream;
-import java.util.HashMap;
-import java.util.Map;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
-import net.tirasa.saml.util.IdP;
 import org.opensaml.Configuration;
 import org.opensaml.DefaultBootstrap;
 import org.opensaml.saml2.metadata.EntityDescriptor;
@@ -38,7 +35,7 @@ public class SPContextListener implements ServletContextListener {
 
     private static final long serialVersionUID = 1L;
 
-    private static final Logger log = LoggerFactory.getLogger(SAMLRequestSender.class);
+    private static final Logger log = LoggerFactory.getLogger(SPContextListener.class);
 
     private static final String IDP_FOLDER = "/tmp";
 
@@ -52,12 +49,12 @@ public class SPContextListener implements ServletContextListener {
 
     private final BasicParserPool ppool;
 
-    private final Map<String, IdP> IDPs;
+    private final COT cot = COT.getInstance();
 
     public SPContextListener() {
         ppool = new BasicParserPool();
         ppool.setNamespaceAware(true);
-        IDPs = new HashMap<>();
+        cot.setSp(new SP());
     }
 
     @Override
@@ -66,10 +63,17 @@ public class SPContextListener implements ServletContextListener {
         if (!idpFolder.isDirectory() || idpFolder.list().length == 0) {
             log.info("No configured IdPs");
         } else {
-            for (String idp : idpFolder.list()) {
+            for (File idp : idpFolder.listFiles(new FilenameFilter() {
+
+                @Override
+                public boolean accept(final File dir, final String name) {
+                    return name.endsWith(".xml");
+                }
+            })) {
+                log.info("Process IdP file descriptor {}", idp.getAbsolutePath());
                 try {
                     final EntityDescriptor descriptor = unmarshall(new FileInputStream(idp));
-                    IDPs.put(descriptor.getEntityID(), new IdP(descriptor));
+                    cot.addIdP(descriptor.getEntityID(), new IdP(descriptor));
                 } catch (Exception ignore) {
                     log.debug("Error loading IdP {}", idp, ignore);
                     log.info("Invalid IdP {}", idp);
@@ -80,7 +84,7 @@ public class SPContextListener implements ServletContextListener {
 
     @Override
     public void contextDestroyed(final ServletContextEvent sce) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        // do nothing
     }
 
     private EntityDescriptor unmarshall(final InputStream is) throws Exception {

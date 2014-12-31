@@ -13,16 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package net.tirasa.saml;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.security.KeyStore;
-import java.util.HashMap;
-import java.util.Map;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -35,26 +30,11 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import net.tirasa.saml.util.Constants;
-import net.tirasa.saml.util.Properties;
+import net.tirasa.saml.context.COT;
 import org.opensaml.Configuration;
-import org.opensaml.common.SAMLObjectBuilder;
-import org.opensaml.common.xml.SAMLConstants;
-import org.opensaml.saml2.metadata.AssertionConsumerService;
 import org.opensaml.saml2.metadata.EntityDescriptor;
-import org.opensaml.saml2.metadata.KeyDescriptor;
-import org.opensaml.saml2.metadata.NameIDFormat;
-import org.opensaml.saml2.metadata.SPSSODescriptor;
-import org.opensaml.xml.XMLObjectBuilderFactory;
 import org.opensaml.xml.io.Marshaller;
 import org.opensaml.xml.io.MarshallingException;
-import org.opensaml.xml.security.CriteriaSet;
-import org.opensaml.xml.security.credential.Credential;
-import org.opensaml.xml.security.credential.KeyStoreCredentialResolver;
-import org.opensaml.xml.security.credential.UsageType;
-import org.opensaml.xml.security.criteria.EntityIDCriteria;
-import org.opensaml.xml.security.keyinfo.KeyInfoGenerator;
-import org.opensaml.xml.security.x509.X509KeyInfoGeneratorFactory;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 
@@ -79,105 +59,7 @@ public class Metadata extends HttpServlet {
 
         response.setContentType("text/html;charset=UTF-8");
 
-        final XMLObjectBuilderFactory bf = Configuration.getBuilderFactory();
-
-        // Create the EntityDescriptor
-        @SuppressWarnings("unchecked")
-        final SAMLObjectBuilder<EntityDescriptor> entityDescriptorBuilder = (SAMLObjectBuilder<EntityDescriptor>) bf.
-                getBuilder(EntityDescriptor.DEFAULT_ELEMENT_NAME);
-
-        final EntityDescriptor spEntityDescriptor = entityDescriptorBuilder.buildObject();
-
-        spEntityDescriptor.setEntityID(Properties.getString(Constants.ENTITYID, request.getRequestURL().toString()));
-
-        @SuppressWarnings("unchecked")
-        final SAMLObjectBuilder<SPSSODescriptor> spSSODescriptorBuilder = (SAMLObjectBuilder<SPSSODescriptor>) bf.
-                getBuilder(SPSSODescriptor.DEFAULT_ELEMENT_NAME);
-
-        final SPSSODescriptor spSSODescriptor = spSSODescriptorBuilder.buildObject();
-
-        spSSODescriptor.setWantAssertionsSigned(Properties.getBoolean(Constants.ASS_SIGN, false));
-        spSSODescriptor.setAuthnRequestsSigned(Properties.getBoolean(Constants.AUTH_SIGN, false));
-
-        final X509KeyInfoGeneratorFactory keyInfoGeneratorFactory = new X509KeyInfoGeneratorFactory();
-
-        keyInfoGeneratorFactory.setEmitEntityCertificate(true);
-        KeyInfoGenerator keyInfoGenerator = keyInfoGeneratorFactory.newInstance();
-
-        try {
-
-            final Credential credential = getCredential();
-
-            if (spSSODescriptor.getWantAssertionsSigned()) {
-
-                @SuppressWarnings("unchecked")
-                final SAMLObjectBuilder<KeyDescriptor> keyDescriptorBuilder = (SAMLObjectBuilder<KeyDescriptor>) bf.
-                        getBuilder(KeyDescriptor.DEFAULT_ELEMENT_NAME);
-
-                KeyDescriptor encKeyDescriptor = keyDescriptorBuilder.buildObject();
-
-                encKeyDescriptor.setUse(UsageType.ENCRYPTION);
-
-                try {
-                    encKeyDescriptor.setKeyInfo(keyInfoGenerator.generate(credential));
-                    spSSODescriptor.getKeyDescriptors().add(encKeyDescriptor);
-                } catch (org.opensaml.xml.security.SecurityException e) {
-                    log.error("Error generating credentials", e);
-                }
-            }
-
-            if (spSSODescriptor.isAuthnRequestsSigned()) {
-
-                @SuppressWarnings("unchecked")
-                final SAMLObjectBuilder<KeyDescriptor> keyDescriptorBuilder = (SAMLObjectBuilder<KeyDescriptor>) bf.
-                        getBuilder(KeyDescriptor.DEFAULT_ELEMENT_NAME);
-
-                KeyDescriptor signKeyDescriptor = keyDescriptorBuilder.buildObject();
-
-                signKeyDescriptor.setUse(UsageType.SIGNING);
-
-                try {
-                    signKeyDescriptor.setKeyInfo(keyInfoGenerator.generate(credential));
-                    spSSODescriptor.getKeyDescriptors().add(signKeyDescriptor);
-                } catch (org.opensaml.xml.security.SecurityException e) {
-                    log.error("Error generating credentials", e);
-                }
-            }
-        } catch (Exception e) {
-            log.error("Error retrieving credentials", e);
-        }
-
-        @SuppressWarnings("unchecked")
-        final SAMLObjectBuilder<NameIDFormat> nameIDFormatBuilder = (SAMLObjectBuilder<NameIDFormat>) bf.getBuilder(
-                NameIDFormat.DEFAULT_ELEMENT_NAME);
-
-        String[] formats = Properties.getStringArray(
-                Constants.FORMATS, new String[] { "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent" });
-
-        for (String format : formats) {
-            NameIDFormat nameIDFormat = nameIDFormatBuilder.buildObject();
-            nameIDFormat.setFormat(format);
-            spSSODescriptor.getNameIDFormats().add(nameIDFormat);
-        }
-
-        @SuppressWarnings("unchecked")
-        final SAMLObjectBuilder<AssertionConsumerService> assertionConsumerServiceBuilder =
-                (SAMLObjectBuilder<AssertionConsumerService>) bf.getBuilder(
-                AssertionConsumerService.DEFAULT_ELEMENT_NAME);
-
-        AssertionConsumerService assertionConsumerService = assertionConsumerServiceBuilder.buildObject();
-        assertionConsumerService.setIndex(0);
-        assertionConsumerService.setBinding(SAMLConstants.SAML2_ARTIFACT_BINDING_URI);
-
-        // Setting address for our AssertionConsumerService
-        assertionConsumerService.setLocation(
-                Properties.getString(Constants.CONSUMER, request.getRequestURL().toString()));
-
-        spSSODescriptor.getAssertionConsumerServices().add(assertionConsumerService);
-
-        spSSODescriptor.addSupportedProtocol(SAMLConstants.SAML20P_NS);
-
-        spEntityDescriptor.getRoleDescriptors().add(spSSODescriptor);
+        final EntityDescriptor spEntityDescriptor = COT.getInstance().getSp().getSpEntityDescriptor();
 
         try {
             DocumentBuilder builder;
@@ -244,32 +126,5 @@ public class Metadata extends HttpServlet {
     @Override
     public String getServletInfo() {
         return "Short description";
-    }// </editor-fold>
-
-    private Credential getCredential() throws Exception {
-        final KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-        final String keystorePath = Properties.getString(Constants.KEYSTORE);
-
-        log.debug("Loading {} kestore {}", keystore.getType(), keystorePath);
-
-        try (final FileInputStream inputStream = new FileInputStream(keystorePath)) {
-            keystore.load(inputStream, Properties.getString(Constants.STOREPASS, "changeit").toCharArray());
-            log.debug("Loaded");
-        }
-
-        final String alias = Properties.getString(Constants.CERT_ALIAS, "test");
-
-        log.debug("Loading certificate .... {}", alias);
-
-        final Map<String, String> passwordMap = new HashMap<>();
-        passwordMap.put(alias, Properties.getString(Constants.KEYPASS, "changeit"));
-
-        final KeyStoreCredentialResolver resolver = new KeyStoreCredentialResolver(keystore, passwordMap);
-
-        final Credential credential = resolver.resolveSingle(new CriteriaSet(new EntityIDCriteria(alias)));
-
-        log.debug("Loaded");
-
-        return credential;
-    }
+    }// </editor-fold>s
 }

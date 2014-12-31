@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package net.tirasa.saml.util;
 
 import java.io.StringWriter;
@@ -26,6 +25,7 @@ import org.opensaml.common.binding.SAMLMessageContext;
 import org.opensaml.common.xml.SAMLConstants;
 import org.opensaml.saml2.binding.decoding.HTTPPostDecoder;
 import org.opensaml.saml2.core.NameID;
+import org.opensaml.saml2.core.Response;
 import org.opensaml.saml2.metadata.IDPSSODescriptor;
 import org.opensaml.ws.security.SecurityPolicy;
 import org.opensaml.ws.security.SecurityPolicyResolver;
@@ -37,55 +37,64 @@ import org.opensaml.ws.security.provider.StaticSecurityPolicyResolver;
 import org.opensaml.ws.transport.http.HttpServletRequestAdapter;
 import org.opensaml.ws.transport.http.HttpServletResponseAdapter;
 import org.opensaml.xml.Configuration;
+import org.opensaml.xml.XMLObject;
 import org.opensaml.xml.util.XMLHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.w3c.dom.Element;
 
 public class SAMLUtils {
 
-    public static SAMLMessageContext decodeSamlMessage(HttpServletRequest request, HttpServletResponse response) throws
-            Exception {
+    private static final long serialVersionUID = 1L;
 
-        SAMLMessageContext<SAMLObject, SAMLObject, NameID> samlMessageContext
-                = new BasicSAMLMessageContext<SAMLObject, SAMLObject, NameID>();
+    private static final Logger log = LoggerFactory.getLogger(SAMLUtils.class);
 
-        HttpServletRequestAdapter httpServletRequestAdapter = new HttpServletRequestAdapter(request);
+    public static SAMLMessageContext<Response, SAMLObject, NameID> decodeSamlMessage(
+            final HttpServletRequest request, final HttpServletResponse response) throws Exception {
+
+        final SAMLMessageContext<Response, SAMLObject, NameID> samlMessageContext = new BasicSAMLMessageContext<>();
+
+        final HttpServletRequestAdapter httpServletRequestAdapter = new HttpServletRequestAdapter(request);
         samlMessageContext.setInboundMessageTransport(httpServletRequestAdapter);
         samlMessageContext.setInboundSAMLProtocol(SAMLConstants.SAML20P_NS);
-        
-        HttpServletResponseAdapter httpServletResponseAdapter = 
-                new HttpServletResponseAdapter(response, request.isSecure());
+
+        final HttpServletResponseAdapter httpServletResponseAdapter = new HttpServletResponseAdapter(response, request.
+                isSecure());
+
         samlMessageContext.setOutboundMessageTransport(httpServletResponseAdapter);
         samlMessageContext.setPeerEntityRole(IDPSSODescriptor.DEFAULT_ELEMENT_NAME);
 
-        SecurityPolicyResolver securityPolicyResolver = getSecurityPolicyResolver(request.isSecure());
-
+        final SecurityPolicyResolver securityPolicyResolver = getSecurityPolicyResolver(request.isSecure());
         samlMessageContext.setSecurityPolicyResolver(securityPolicyResolver);
-        HTTPPostDecoder samlMessageDecoder = new HTTPPostDecoder();
-        
-        samlMessageDecoder.decode(samlMessageContext);
-        
+
+        new HTTPPostDecoder().decode(samlMessageContext);
         return samlMessageContext;
     }
 
     private static SecurityPolicyResolver getSecurityPolicyResolver(boolean isSecured) {
-        SecurityPolicy securityPolicy = new BasicSecurityPolicy();
-        HTTPRule httpRule = new HTTPRule(null, null, isSecured);
-        MandatoryIssuerRule mandatoryIssuerRule = new MandatoryIssuerRule();
-        List<SecurityPolicyRule> securityPolicyRules = securityPolicy.getPolicyRules();
+        final SecurityPolicy securityPolicy = new BasicSecurityPolicy();
+        final HTTPRule httpRule = new HTTPRule(null, null, isSecured);
+        final MandatoryIssuerRule mandatoryIssuerRule = new MandatoryIssuerRule();
+        final List<SecurityPolicyRule> securityPolicyRules = securityPolicy.getPolicyRules();
         securityPolicyRules.add(httpRule);
         securityPolicyRules.add(mandatoryIssuerRule);
         return new StaticSecurityPolicyResolver(securityPolicy);
     }
 
-    public static String SAMLObjectToString(final org.opensaml.xml.XMLObject samlObject) {
+    public static String SAMLObjectToString(final XMLObject samlObject) {
         try {
-            org.opensaml.xml.io.Marshaller marshaller = Configuration.getMarshallerFactory().getMarshaller(samlObject);
-            org.w3c.dom.Element authDOM = marshaller.marshall(samlObject);
-            StringWriter rspWrt = new StringWriter();
-            XMLHelper.writeNode(authDOM, rspWrt);
-            return rspWrt.toString();
+            return SAMLObjectToString(
+                    Configuration.getMarshallerFactory().getMarshaller(samlObject).marshall(samlObject));
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error serializing SAML Object", e);
+            return null;
         }
-        return null;
+    }
+
+    public static String SAMLObjectToString(final Element node) {
+        StringWriter rspWrt = new StringWriter();
+        XMLHelper.writeNode(node, rspWrt);
+        return rspWrt.toString();
+
     }
 }

@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package net.tirasa.saml.util;
 
 public class Constants {
@@ -24,9 +23,7 @@ public class Constants {
 
     public final static String CONSUMER = "assertion.consumer.service";
 
-    public final static String ASS_SIGN = "assertion.signed";
-
-    public final static String AUTH_SIGN = "authentication.signed";
+    public final static String LOGOUT = "single.logout.service";
 
     public final static String KEYSTORE = "keystore";
 
@@ -35,5 +32,21 @@ public class Constants {
     public final static String KEYPASS = "keypass";
 
     public final static String CERT_ALIAS = "certificate.alias";
+
+    public final static String PROTOCOL = "urn:oasis:names:tc:SAML:2.0:protocol";
+
+    public final static String ASSERTION = "urn:oasis:names:tc:SAML:2.0:assertion";
+
+    public final static String NAMEID_FORMAT = "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent";
+
+    public final static String ISSUER = "Issuer";
+
+    public final static String NS_PREFIX = "saml2sp";
+
+    public final static String AUTHN_REQUEST = "AuthnRequest";
+
+    public final static String RELAY = "relay";
+
+    public final static String SAML_AUTHN_RESPONSE_PARAMETER_NAME = "SAMLResponse";
 
 }

@@ -13,27 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package net.tirasa.saml.util;
 
-import java.util.Map;
-import org.opensaml.saml2.metadata.EntityDescriptor;
+public enum Binding {
 
-public class IdP {
+    POST("urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"),
+    REDIRECT("urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"),
+    SOAP("urn:oasis:names:tc:SAML:2.0:bindings:SOAP");
 
-    private String id;
+    private final String binding;
 
-    private Map<String, String> bindings;
-
-    public IdP(final EntityDescriptor ed) {
-        this.id = ed.getID();
+    private Binding(final String value) {
+        this.binding = value;
     }
 
-    public String getId() {
-        return id;
+    public String getBinding() {
+        return binding;
     }
 
-    public Map<String, String> getBindings() {
-        return bindings;
-    }
 }

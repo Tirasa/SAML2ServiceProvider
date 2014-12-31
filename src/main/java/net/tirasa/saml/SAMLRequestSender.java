@@ -13,17 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package net.tirasa.saml;
 
-import java.util.List;
+import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import net.tirasa.saml.context.COT;
+import net.tirasa.saml.context.IdP;
+import net.tirasa.saml.context.SP;
 import net.tirasa.saml.store.SAMLRequestStore;
+import net.tirasa.saml.util.Binding;
+import net.tirasa.saml.util.Constants;
 import net.tirasa.saml.util.SAMLUtils;
 import org.joda.time.DateTime;
 import org.opensaml.common.SAMLObject;
 import org.opensaml.common.SAMLVersion;
+import org.opensaml.common.binding.BasicSAMLMessageContext;
 import org.opensaml.common.xml.SAMLConstants;
 import org.opensaml.saml2.binding.encoding.HTTPRedirectDeflateEncoder;
 import org.opensaml.saml2.core.AuthnRequest;
@@ -32,100 +37,100 @@ import org.opensaml.saml2.core.NameIDPolicy;
 import org.opensaml.saml2.core.impl.AuthnRequestBuilder;
 import org.opensaml.saml2.core.impl.IssuerBuilder;
 import org.opensaml.saml2.core.impl.NameIDPolicyBuilder;
-import org.opensaml.util.URLBuilder;
 import org.opensaml.ws.message.encoder.MessageEncodingException;
 import org.opensaml.ws.transport.http.HTTPTransportUtils;
 import org.opensaml.ws.transport.http.HttpServletResponseAdapter;
-import org.opensaml.xml.util.Pair;
+import org.opensaml.xml.security.credential.Credential;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class SAMLRequestSender {
 
-    private static Logger log = LoggerFactory.getLogger(SAMLRequestSender.class);
+    private static final Logger log = LoggerFactory.getLogger(SAMLRequestSender.class);
 
-    private SAMLAuthnRequestBuilder samlAuthnRequestBuilder = new SAMLAuthnRequestBuilder();
+    public void sendSAMLAuthRequest(
+            final HttpServletRequest request, final HttpServletResponse servletResponse, final IdP idp)
+            throws Exception {
+        final SP sp = COT.getInstance().getSp();
 
-    private MessageEncoder messageEncoder = new MessageEncoder();
+        final AuthnRequest authnRequest = buildRequest(sp, idp);
 
-    public void sendSAMLAuthRequest(HttpServletRequest request, HttpServletResponse servletResponse, String spId,
-            String acsUrl, String idpSSOUrl) throws Exception {
-        String redirectURL;
-        String idpUrl = idpSSOUrl;
-        AuthnRequest authnRequest = samlAuthnRequestBuilder.buildRequest(spId, acsUrl, idpUrl);
-        
-        // store SAML 2.0 authentication request
-        String key = SAMLRequestStore.getInstance().storeRequest();
-        authnRequest.setID(key);
-        
-        log.debug("SAML Authentication message : {} ",
-                SAMLUtils.SAMLObjectToString(authnRequest));
-        
-        redirectURL = messageEncoder.encode(authnRequest, idpUrl, request.getParameter("relay"));
+        final HttpServletResponseAdapter responseAdapter = new HttpServletResponseAdapter(
+                servletResponse, request.isSecure());
 
-        HttpServletResponseAdapter responseAdapter = new HttpServletResponseAdapter(servletResponse, request.isSecure());
+        final String relayState = request.getParameter(Constants.RELAY);
+
+        final BasicSAMLMessageContext<SAMLObject, AuthnRequest, SAMLObject> context = getMessageContext(
+                authnRequest, COT.getInstance().getSp().getCredential(), relayState, responseAdapter);
+
         HTTPTransportUtils.addNoCacheHeaders(responseAdapter);
         HTTPTransportUtils.setUTF8Encoding(responseAdapter);
-        responseAdapter.sendRedirect(redirectURL);
 
-    }
-
-    private static class SAMLAuthnRequestBuilder {
-
-        public AuthnRequest buildRequest(String spProviderId, String acsUrl, String idpUrl) {
-            /* Building Issuer object */
-            final IssuerBuilder issuerBuilder = new IssuerBuilder();
-            final Issuer issuer = 
-                    issuerBuilder.buildObject("urn:oasis:names:tc:SAML:2.0:assertion", "Issuer", "saml2p");
-            issuer.setValue(spProviderId);
-
-            /* Creation of AuthRequestObject */
-            final DateTime issueInstant = new DateTime();
-            AuthnRequestBuilder authRequestBuilder = new AuthnRequestBuilder();
-
-            final AuthnRequest authRequest = 
-                    authRequestBuilder.buildObject(SAMLConstants.SAML20P_NS, "AuthnRequest", "saml2p");
-            authRequest.setForceAuthn(false);
-            authRequest.setIssueInstant(issueInstant);
-            authRequest.setProtocolBinding(SAMLConstants.SAML2_POST_BINDING_URI);
-            authRequest.setAssertionConsumerServiceURL(acsUrl);
-            authRequest.setIssuer(issuer);
-            authRequest.setVersion(SAMLVersion.VERSION_20);
-
-            /* NameIDPolicy */
-            final NameIDPolicyBuilder nameIdPolicyBuilder = new NameIDPolicyBuilder();
-            NameIDPolicy nameIdPolicy = nameIdPolicyBuilder.buildObject();
-            nameIdPolicy.setFormat("urn:oasis:names:tc:SAML:2.0:nameid-format:persistent");
-            nameIdPolicy.setSPNameQualifier("Isser");
-            nameIdPolicy.setAllowCreate(true);
-            authRequest.setNameIDPolicy(nameIdPolicy);
-            
-            authRequest.setVersion(SAMLVersion.VERSION_20);
-            authRequest.setDestination(idpUrl);
-
-            return authRequest;
+        try {
+            new HTTPRedirectDeflateEncoder().encode(context);
+        } catch (MessageEncodingException e) {
+            log.error("Eror encoding AuthN Request", e);
         }
     }
 
-    private static class MessageEncoder extends HTTPRedirectDeflateEncoder {
+    public AuthnRequest buildRequest(final SP sp, final IdP idp) throws ServletException {
+        final IssuerBuilder issuerBuilder = new IssuerBuilder();
+        final Issuer issuer = issuerBuilder.buildObject(
+                Constants.ASSERTION,
+                Constants.ISSUER,
+                Constants.NS_PREFIX);
 
-        public String encode(SAMLObject message, String endpointURL, String relayState)
-                throws MessageEncodingException {
-            String encodedMessage = deflateAndBase64Encode(message);
-            return buildRedirectURL(endpointURL, relayState, encodedMessage);
-        }
+        issuer.setValue(sp.getEntityid());
 
-        public String buildRedirectURL(String endpointURL, String relayState, String message)
-                throws MessageEncodingException {
-            URLBuilder urlBuilder = new URLBuilder(endpointURL);
-            List<Pair<String, String>> queryParams = urlBuilder.getQueryParams();
-            queryParams.clear();
-            queryParams.add(new Pair<String, String>("SAMLRequest", message));
-            if (checkRelayState(relayState)) {
-                queryParams.add(new Pair<String, String>("RelayState", relayState));
-            }
-            return urlBuilder.buildURL();
-        }
+        // Creation of AuthRequestObject
+        final DateTime issueInstant = new DateTime();
+        AuthnRequestBuilder authRequestBuilder = new AuthnRequestBuilder();
+
+        final AuthnRequest authRequest = authRequestBuilder.buildObject(
+                SAMLConstants.SAML20P_NS,
+                Constants.AUTHN_REQUEST,
+                Constants.NS_PREFIX);
+
+        // Store SAML 2.0 authentication request
+        authRequest.setID(SAMLRequestStore.getInstance().storeRequest());
+        authRequest.setForceAuthn(false);
+        authRequest.setIssueInstant(issueInstant);
+        authRequest.setProtocolBinding(SAMLConstants.SAML2_POST_BINDING_URI);
+        authRequest.setAssertionConsumerServiceURL(sp.getAcs());
+        authRequest.setIssuer(issuer);
+        authRequest.setVersion(SAMLVersion.VERSION_20);
+
+        /* NameIDPolicy */
+        final NameIDPolicyBuilder nameIdPolicyBuilder = new NameIDPolicyBuilder();
+        NameIDPolicy nameIdPolicy = nameIdPolicyBuilder.buildObject();
+        nameIdPolicy.setFormat(Constants.NAMEID_FORMAT);
+        nameIdPolicy.setSPNameQualifier(Constants.ISSUER);
+        nameIdPolicy.setAllowCreate(true);
+        authRequest.setNameIDPolicy(nameIdPolicy);
+
+        authRequest.setVersion(SAMLVersion.VERSION_20);
+        authRequest.setDestination(idp.getSSOLocation(Binding.REDIRECT).getLocation());
+
+        log.debug("SAML Authentication message : {} ", SAMLUtils.SAMLObjectToString(authRequest));
+
+        return authRequest;
     }
 
+    private BasicSAMLMessageContext<SAMLObject, AuthnRequest, SAMLObject> getMessageContext(
+            final AuthnRequest authnRequest,
+            final Credential credential,
+            final String relayState,
+            final HttpServletResponseAdapter responseAdapter) {
+
+        final BasicSAMLMessageContext<SAMLObject, AuthnRequest, SAMLObject> context
+                = new BasicSAMLMessageContext<>();
+
+        context.setPeerEntityEndpoint(COT.getInstance().getIdP().getSSOLocation(Binding.REDIRECT));
+        context.setOutboundSAMLMessage(authnRequest);
+        context.setOutboundMessageTransport(responseAdapter);
+        context.setOutboundSAMLMessageSigningCredential(credential);
+        context.setRelayState(relayState);
+
+        return context;
+    }
 }

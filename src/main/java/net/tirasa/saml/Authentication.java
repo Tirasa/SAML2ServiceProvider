@@ -13,15 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package net.tirasa.saml;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import net.tirasa.saml.context.COT;
+import net.tirasa.saml.context.IdP;
+import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -31,6 +34,10 @@ public class Authentication extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
 
+    private static final Logger log = LoggerFactory.getLogger(Authentication.class);
+
+    private final static String IDP_ENTITY_ID = "entityid";
+
     /**
      * Processes requests for both HTTP <code>GET</code> and <code>POST</code> methods.
      *
@@ -39,33 +46,32 @@ public class Authentication extends HttpServlet {
      * @throws ServletException if a servlet-specific error occurs
      * @throws IOException if an I/O error occurs
      */
-    protected void processRequest(HttpServletRequest request, HttpServletResponse response)
+    protected void processRequest(final HttpServletRequest request, final HttpServletResponse response)
             throws ServletException, IOException {
         response.setContentType("text/html;charset=UTF-8");
-        
-        
+
+        final String entityid = request.getParameter(IDP_ENTITY_ID);
+        final IdP idp;
+        if (StringUtils.isBlank(entityid)) {
+            idp = COT.getInstance().getIdP();
+        } else {
+            idp = COT.getInstance().getIdP(entityid);
+        }
+
+        if (idp == null) {
+            log.error("No IdP in COT found");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
+
         try {
             new SAMLRequestSender().sendSAMLAuthRequest(
                     request,
                     response,
-                    "http://localhost:9080/",
-                    "http://localhost:9080/saml2sp/assertion-consumer-service",
-                    "http://localhost:8080/openam/SSOPOST/metaAlias/idp");
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-        
-        try (PrintWriter out = response.getWriter()) {
-            /* TODO output your page here. You may use following sample code. */
-            out.println("<!DOCTYPE html>");
-            out.println("<html>");
-            out.println("<head>");
-            out.println("<title>Servlet Authentication</title>");            
-            out.println("</head>");
-            out.println("<body>");
-            out.println("<h1>Servlet Authentication at " + request.getContextPath() + "</h1>");
-            out.println("</body>");
-            out.println("</html>");
+                    idp);
+        } catch (Exception e) {
+            log.error("Error creating request sender", e);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
 

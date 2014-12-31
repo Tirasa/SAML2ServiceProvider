@@ -13,18 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package net.tirasa.saml;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import net.tirasa.saml.store.SAMLSessionManager;
+import net.tirasa.saml.util.Constants;
+import net.tirasa.saml.util.Properties;
 import net.tirasa.saml.util.SAMLUtils;
+import org.apache.commons.lang.StringUtils;
+import org.opensaml.common.SAMLObject;
 import org.opensaml.common.binding.SAMLMessageContext;
+import org.opensaml.saml2.core.NameID;
+import org.opensaml.saml2.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,12 +38,10 @@ import org.slf4j.LoggerFactory;
  */
 public class Consumer extends HttpServlet {
 
-    private static Logger log = LoggerFactory.getLogger(Consumer.class);
-    
-    private final static String SAML_AUTHN_RESPONSE_PARAMETER_NAME = "SAMLResponse";
-
     private static final long serialVersionUID = 1L;
-    
+
+    private static final Logger log = LoggerFactory.getLogger(Consumer.class);
+
     /**
      * Processes requests for both HTTP <code>GET</code> and <code>POST</code> methods.
      *
@@ -52,49 +54,49 @@ public class Consumer extends HttpServlet {
             throws ServletException, IOException {
         response.setContentType("text/html;charset=UTF-8");
 
-        log.debug("Attempt to secure resource  is intercepted : {}", ((HttpServletRequest) request).
-                getRequestURL().toString());
-        
+        if (request.getRequestURL().toString().equals(Properties.getString(Constants.LOGOUT))) {
+            log.debug("Logout action: destroying SAML session.");
+            SAMLSessionManager.getInstance().destroySAMLSession(request.getSession());
+            // could be redirected to the idp if specified into IdP metadata (not yet supported)
+            return;
+        }
+
+        log.debug("Attempt to secure resource  is intercepted : {}", request.getRequestURL().toString());
+
         /*
          * Check if response message is received from identity provider;
          * In case of successful response system redirects user to relayState (initial) request
          */
-        String responseMessage = request.getParameter(SAML_AUTHN_RESPONSE_PARAMETER_NAME);
-        if (responseMessage != null) {
+        final String responseMessage = request.getParameter(Constants.SAML_AUTHN_RESPONSE_PARAMETER_NAME);
+
+        if (StringUtils.isNotBlank(responseMessage)) {
             log.debug("Response from Identity Provider is received");
             try {
                 log.debug("Decoding of SAML message");
-                SAMLMessageContext samlMessageContext = SAMLUtils.decodeSamlMessage(request, response);
-                
-                log.debug("SAML message has been decoded successfully");
-                
-                samlMessageContext.setLocalEntityId("http://localhost:9080/");
+                final SAMLMessageContext<Response, SAMLObject, NameID> samlMessageContext = SAMLUtils.decodeSamlMessage(
+                        request, response);
 
-                String relayState = samlMessageContext.getRelayState();
+                log.debug("SAML message has been decoded successfully");
+
+                samlMessageContext.setLocalEntityId(
+                        Properties.getString(Constants.ENTITYID, request.getRequestURL().toString()));
+
+                final String relayState = samlMessageContext.getRelayState();
 
                 new SAMLResponseVerifier().verify(samlMessageContext);
-                
+
                 log.debug("Starting and store SAML session..");
-                SAMLSessionManager.getInstance().createSAMLSession(request.getSession(),
-                        samlMessageContext);
-                
+                SAMLSessionManager.getInstance().createSAMLSession(request.getSession(), samlMessageContext);
+
                 log.debug("User has been successfully authenticated in idP. "
                         + "Redirect to initial requested resource {}", relayState);
 
                 response.sendRedirect(relayState);
-                return;
             } catch (Exception e) {
-                e.printStackTrace();
-                throw new ServletException(e);
+                log.error("Error processing IdP response", e);
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             }
         }
-
-//        if (getCorrectURL(request).equals(filterConfig.getLogoutUrl())) {
-//            log.debug("Logout action: destroying SAML session.");
-//            SAMLSessionManager.getInstance().destroySAMLSession(request.getSession());
-//            chain.doFilter(request, response);
-//            return;
-//        }
     }
 
     // <editor-fold defaultstate="collapsed" desc="HttpServlet methods. Click on the + sign on the left to edit the code.">

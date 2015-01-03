@@ -31,6 +31,7 @@ import org.opensaml.saml2.core.NameID;
 import org.opensaml.saml2.core.Response;
 import org.opensaml.saml2.core.Status;
 import org.opensaml.saml2.core.StatusCode;
+import org.opensaml.security.SAMLSignatureProfileValidator;
 import org.opensaml.xml.Configuration;
 import org.opensaml.xml.io.UnmarshallingException;
 import org.opensaml.xml.signature.Signature;
@@ -52,7 +53,15 @@ public class SAMLResponseVerifier {
         log.debug("SAML Response message : {}", SAMLUtils.SAMLObjectToString(samlResponse));
 
         if (samlResponse.isSigned()) {
+            final SAMLSignatureProfileValidator profileValidator = new SAMLSignatureProfileValidator();
 
+            try {
+                profileValidator.validate(samlResponse.getSignature());
+                log.info("SAML signature profile validation has been successful");
+            } catch (ValidationException e) {
+                log.error("SAML signature profile validation has been failed", e);
+                throw new SAMLException(e);
+            }
         }
 
         verifyInResponseTo(samlResponse);
@@ -94,7 +103,7 @@ public class SAMLResponseVerifier {
             throw new SAMLException(e);
         }
         // ------------------------------------
-        
+
         final NameID nameId = assertion.getSubject().getNameID();
         if (nameId == null) {
             log.error("Name ID not present in subject");

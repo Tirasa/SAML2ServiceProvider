@@ -16,8 +16,10 @@
 package net.tirasa.saml.context;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.security.PublicKey;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.util.HashMap;
 import java.util.Map;
@@ -70,14 +72,18 @@ public class IdP {
             sloBindings.put(slo.getBinding(), slo);
         }
 
-        // TODO: check just for 1 certificate per type ....
+        // Check just for 1 certificate per type ....
         for (KeyDescriptor key : idpdescriptor.getKeyDescriptors()) {
             try {
                 final X509Certificate cert = key.getKeyInfo().getX509Datas().get(0).getX509Certificates().get(0);
 
                 final byte[] decoded = Base64.decode(cert.getValue());
                 final CertificateFactory cf = CertificateFactory.getInstance("X.509");
-                final Certificate x509cert = cf.generateCertificate(new ByteArrayInputStream(decoded));
+
+                final ByteArrayInputStream bais = new ByteArrayInputStream(decoded);
+                final Certificate x509cert = cf.generateCertificate(bais);
+                bais.close();
+
                 final PublicKey publickKey = x509cert.getPublicKey();
 
                 switch (key.getUse()) {
@@ -92,7 +98,7 @@ public class IdP {
                     default:
                     //ignore
                 }
-            } catch (Exception e) {
+            } catch (CertificateException | IOException e) {
                 log.warn("Error retrieving X509Certificate from IdP metadata", e);
             }
         }

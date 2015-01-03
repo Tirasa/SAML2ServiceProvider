@@ -18,6 +18,7 @@ package net.tirasa.saml;
 import net.tirasa.saml.util.SAMLUtils;
 import net.tirasa.saml.store.SAMLRequestStore;
 import java.util.List;
+import net.tirasa.saml.context.COT;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.opensaml.common.SAMLException;
@@ -30,8 +31,13 @@ import org.opensaml.saml2.core.NameID;
 import org.opensaml.saml2.core.Response;
 import org.opensaml.saml2.core.Status;
 import org.opensaml.saml2.core.StatusCode;
+import org.opensaml.xml.Configuration;
+import org.opensaml.xml.io.UnmarshallingException;
+import org.opensaml.xml.signature.Signature;
+import org.opensaml.xml.validation.ValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.Element;
 
 public class SAMLResponseVerifier {
 
@@ -45,10 +51,14 @@ public class SAMLResponseVerifier {
 
         log.debug("SAML Response message : {}", SAMLUtils.SAMLObjectToString(samlResponse));
 
+        if (samlResponse.isSigned()) {
+
+        }
+
         verifyInResponseTo(samlResponse);
-        Status status = samlResponse.getStatus();
-        StatusCode statusCode = status.getStatusCode();
-        String statusCodeURI = statusCode.getValue();
+        final Status status = samlResponse.getStatus();
+        final StatusCode statusCode = status.getStatusCode();
+        final String statusCodeURI = statusCode.getValue();
 
         if (!statusCodeURI.equals(StatusCode.SUCCESS_URI)) {
             log.warn("Incorrect SAML message code : {} ", statusCode.getStatusCode().getValue());
@@ -68,16 +78,23 @@ public class SAMLResponseVerifier {
         }
 
         // ------------------------------------
-        // TODO: Verify signature
+        // Verify signature
         // ------------------------------------
-//        try {
-//            final Signature sig = assertion.getSignature();
-//            COT.getInstance().getIdP().getSignatureValidator().validate(sig);
-//        } catch (ValidationException e) {
-//            log.error("Signature not valid", e);
-//            throw new SAMLException(e);
-//        }
+        try {
+            log.debug("Verify assertion signature .....");
+
+            final Element responseDOM = samlResponse.getDOM();
+            Configuration.getUnmarshallerFactory().getUnmarshaller(responseDOM).unmarshall(responseDOM);
+
+            final Signature sig = assertion.getSignature();
+            COT.getInstance().getIdP().getSignatureValidator().validate(sig);
+
+        } catch (ValidationException | UnmarshallingException e) {
+            log.error("Signature not valid", e);
+            throw new SAMLException(e);
+        }
         // ------------------------------------
+        
         final NameID nameId = assertion.getSubject().getNameID();
         if (nameId == null) {
             log.error("Name ID not present in subject");

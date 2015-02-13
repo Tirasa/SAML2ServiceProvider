@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package net.tirasa.saml;
 
 import net.tirasa.saml.util.SAMLUtils;
@@ -90,18 +89,20 @@ public class SAMLResponseVerifier {
         // ------------------------------------
         // Verify signature
         // ------------------------------------
-        try {
-            log.debug("Verify assertion signature .....");
+        if (COT.getInstance().getSp().isWantAssertionsSigned()) {
+            try {
+                log.debug("Verify assertion signature .....");
 
-            final Element responseDOM = samlResponse.getDOM();
-            Configuration.getUnmarshallerFactory().getUnmarshaller(responseDOM).unmarshall(responseDOM);
+                final Element responseDOM = samlResponse.getDOM();
+                Configuration.getUnmarshallerFactory().getUnmarshaller(responseDOM).unmarshall(responseDOM);
 
-            final Signature sig = assertion.getSignature();
-            COT.getInstance().getIdP().getSignatureValidator().validate(sig);
+                final Signature sig = assertion.getSignature();
+                COT.getInstance().getIdP().getSignatureValidator().validate(sig);
 
-        } catch (ValidationException | UnmarshallingException e) {
-            log.error("Signature not valid", e);
-            throw new SAMLException(e);
+            } catch (ValidationException | UnmarshallingException e) {
+                log.error("Signature not valid", e);
+                throw new SAMLException(e);
+            }
         }
         // ------------------------------------
 

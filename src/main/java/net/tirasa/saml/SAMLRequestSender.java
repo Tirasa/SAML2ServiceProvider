@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package net.tirasa.saml;
 
 import javax.servlet.ServletException;
@@ -31,6 +30,8 @@ import org.opensaml.common.SAMLObject;
 import org.opensaml.common.SAMLVersion;
 import org.opensaml.common.binding.BasicSAMLMessageContext;
 import org.opensaml.common.xml.SAMLConstants;
+import org.opensaml.saml2.binding.encoding.HTTPPostEncoder;
+import org.opensaml.saml2.binding.encoding.HTTPPostSimpleSignEncoder;
 import org.opensaml.saml2.binding.encoding.HTTPRedirectDeflateEncoder;
 import org.opensaml.saml2.core.AuthnRequest;
 import org.opensaml.saml2.core.Issuer;
@@ -62,15 +63,15 @@ public class SAMLRequestSender {
         final String relayState = request.getParameter(Constants.RELAY);
 
         final BasicSAMLMessageContext<SAMLObject, AuthnRequest, SAMLObject> context = getMessageContext(
-                authnRequest, COT.getInstance().getSp().getCredential(), relayState, responseAdapter);
+                idp, authnRequest, COT.getInstance().getSp().getCredential(), relayState, responseAdapter);
 
         HTTPTransportUtils.addNoCacheHeaders(responseAdapter);
         HTTPTransportUtils.setUTF8Encoding(responseAdapter);
 
         try {
-            new HTTPRedirectDeflateEncoder().encode(context);
+            new HTTPRedirectEncoder().encode(context);
         } catch (MessageEncodingException e) {
-            log.error("Eror encoding AuthN Request", e);
+            log.error("Error encoding AuthN Request", e);
         }
     }
 
@@ -118,15 +119,15 @@ public class SAMLRequestSender {
     }
 
     private BasicSAMLMessageContext<SAMLObject, AuthnRequest, SAMLObject> getMessageContext(
+            final IdP idp,
             final AuthnRequest authnRequest,
             final Credential credential,
             final String relayState,
             final HttpServletResponseAdapter responseAdapter) {
 
-        final BasicSAMLMessageContext<SAMLObject, AuthnRequest, SAMLObject> context
-                = new BasicSAMLMessageContext<>();
+        final BasicSAMLMessageContext<SAMLObject, AuthnRequest, SAMLObject> context = new BasicSAMLMessageContext<>();
 
-        context.setPeerEntityEndpoint(COT.getInstance().getIdP().getSSOLocation(Binding.REDIRECT));
+        context.setPeerEntityEndpoint(idp.getSSOLocation(Binding.REDIRECT));
         context.setOutboundSAMLMessage(authnRequest);
         context.setOutboundMessageTransport(responseAdapter);
         context.setOutboundSAMLMessageSigningCredential(credential);

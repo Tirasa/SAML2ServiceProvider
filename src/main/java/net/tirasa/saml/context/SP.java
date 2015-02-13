@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package net.tirasa.saml.context;
 
 import java.io.InputStream;
@@ -57,6 +56,10 @@ public class SP {
 
     private final EntityDescriptor spEntityDescriptor;
 
+    private final boolean wantAssertionsSigned = false;
+
+    private final boolean authnRequestsSigned = true;
+
     SP() {
 
         this.entityid = Properties.getString(Constants.ENTITYID);
@@ -80,8 +83,8 @@ public class SP {
 
         final SPSSODescriptor spSSODescriptor = spSSODescriptorBuilder.buildObject();
 
-        spSSODescriptor.setWantAssertionsSigned(true);
-        spSSODescriptor.setAuthnRequestsSigned(true);
+        spSSODescriptor.setWantAssertionsSigned(wantAssertionsSigned);
+        spSSODescriptor.setAuthnRequestsSigned(authnRequestsSigned);
 
         try {
             credential = getCredential();
@@ -206,6 +209,14 @@ public class SP {
      */
     public String getSlo() {
         return slo;
+    }
+
+    public boolean isWantAssertionsSigned() {
+        return wantAssertionsSigned;
+    }
+
+    public boolean isAuthnRequestsSigned() {
+        return authnRequestsSigned;
     }
 
 }

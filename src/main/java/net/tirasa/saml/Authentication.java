@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package net.tirasa.saml;
 
 import java.io.IOException;
@@ -52,6 +51,8 @@ public class Authentication extends HttpServlet {
         response.setContentType("text/html;charset=UTF-8");
 
         final String entityid = request.getParameter(IDP_ENTITY_ID);
+        log.info("Retrieving IdP '{}'", entityid);
+
         final IdP idp;
         if (StringUtils.isBlank(entityid)) {
             idp = COT.getInstance().getIdP();
@@ -66,6 +67,7 @@ public class Authentication extends HttpServlet {
         }
 
         try {
+            log.info("Send SAML AuthN request to {}", idp.getId());
             new SAMLRequestSender().sendSAMLAuthRequest(
                     request,
                     response,

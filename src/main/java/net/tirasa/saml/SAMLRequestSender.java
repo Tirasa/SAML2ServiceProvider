@@ -69,7 +69,8 @@ public class SAMLRequestSender {
         HTTPTransportUtils.setUTF8Encoding(responseAdapter);
 
         try {
-            new HTTPRedirectEncoder().encode(context);
+            new HTTPRedirectDeflateEncoder().encode(context);
+//            new HTTPRedirectEncoder().encode(context);
         } catch (MessageEncodingException e) {
             log.error("Error encoding AuthN Request", e);
         }

@@ -19,6 +19,7 @@ import net.tirasa.saml.util.SAMLUtils;
 import net.tirasa.saml.store.SAMLRequestStore;
 import java.util.List;
 import net.tirasa.saml.context.COT;
+import net.tirasa.saml.context.IdP;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.opensaml.common.SAMLException;
@@ -48,15 +49,38 @@ public class SAMLResponseVerifier {
 
     public void verify(final SAMLMessageContext<Response, SAMLObject, NameID> samlMessageContext)
             throws SAMLException {
-        Response samlResponse = samlMessageContext.getInboundSAMLMessage();
 
-        log.debug("SAML Response message : {}", SAMLUtils.SAMLObjectToString(samlResponse));
+        final Response samlResponse = samlMessageContext.getInboundSAMLMessage();
+
+        final IdP idp = COT.getInstance().getIdP(samlResponse.getIssuer().getValue());
+
+        log.debug("SAML Response message: {}", SAMLUtils.SAMLObjectToString(samlResponse));
+
+        // -------------------------------------------
+        // With xmlsec 1.5.0 and greater, the calling code must register ID-ness on DOM attributes in order for ID-based
+        // resolution to work. Unmarshalling code does it (if you are not using that part of OpenSAML, then it's your 
+        // responsibility to do so).
+        // http://marc.info/?l=shibboleth-dev&m=136846685606151
+        // -------------------------------------------
+        final Element responseDOM = samlResponse.getDOM();
+        try {
+            Configuration.getUnmarshallerFactory().getUnmarshaller(responseDOM).unmarshall(responseDOM);
+        } catch (UnmarshallingException e) {
+            throw new SAMLException(e);
+        }
+        // -------------------------------------------
 
         if (samlResponse.isSigned()) {
-            final SAMLSignatureProfileValidator profileValidator = new SAMLSignatureProfileValidator();
-
             try {
-                profileValidator.validate(samlResponse.getSignature());
+                log.debug("Verify profile");
+                new SAMLSignatureProfileValidator().validate(samlResponse.getSignature());
+
+                log.error("Canonicalization algorithm: {}", samlResponse.getSignature().getCanonicalizationAlgorithm());
+                log.error("Signature algorithm: {}", samlResponse.getSignature().getSignatureAlgorithm());
+
+                log.debug("Verify response signature");
+                idp.getSignatureValidatorChain().validate(samlResponse.getSignature());
+
                 log.info("SAML signature profile validation has been successful");
             } catch (ValidationException e) {
                 log.error("SAML signature profile validation has been failed", e);
@@ -93,13 +117,10 @@ public class SAMLResponseVerifier {
             try {
                 log.debug("Verify assertion signature .....");
 
-                final Element responseDOM = samlResponse.getDOM();
-                Configuration.getUnmarshallerFactory().getUnmarshaller(responseDOM).unmarshall(responseDOM);
-
                 final Signature sig = assertion.getSignature();
-                COT.getInstance().getIdP().getSignatureValidator().validate(sig);
+                idp.getSignatureValidatorChain().validate(sig);
 
-            } catch (ValidationException | UnmarshallingException e) {
+            } catch (ValidationException e) {
                 log.error("Signature not valid", e);
                 throw new SAMLException(e);
             }

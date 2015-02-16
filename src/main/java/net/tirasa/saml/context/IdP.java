@@ -13,27 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package net.tirasa.saml.context;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.security.PublicKey;
-import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import net.tirasa.saml.util.Binding;
 import net.tirasa.saml.util.Constants;
+import net.tirasa.saml.util.SignatureValidatorChain;
 import org.opensaml.saml2.metadata.Endpoint;
 import org.opensaml.saml2.metadata.EntityDescriptor;
 import org.opensaml.saml2.metadata.IDPSSODescriptor;
 import org.opensaml.saml2.metadata.KeyDescriptor;
 import org.opensaml.saml2.metadata.SingleLogoutService;
 import org.opensaml.saml2.metadata.SingleSignOnService;
-import org.opensaml.xml.security.x509.BasicX509Credential;
-import org.opensaml.xml.signature.SignatureValidator;
 import org.opensaml.xml.signature.X509Certificate;
 import org.opensaml.xml.util.Base64;
 import org.slf4j.Logger;
@@ -51,13 +49,11 @@ public class IdP {
 
     private final Map<String, Endpoint> sloBindings = new HashMap<>();
 
-    private final SignatureValidator signatureValidator;
+    private final SignatureValidatorChain signatureValidatorChain;
 
     IdP(final EntityDescriptor ed) {
         this.id = ed.getEntityID();
-
-        final BasicX509Credential signing = new BasicX509Credential();
-        signing.setEntityId(id);
+        signatureValidatorChain = new SignatureValidatorChain(id);
 
         final IDPSSODescriptor idpdescriptor = ed.getIDPSSODescriptor(Constants.PROTOCOL);
 
@@ -76,25 +72,25 @@ public class IdP {
         // Check just for 1 certificate per type ....
         for (KeyDescriptor key : idpdescriptor.getKeyDescriptors()) {
             try {
-                final X509Certificate cert = key.getKeyInfo().getX509Datas().get(0).getX509Certificates().get(0);
 
-                final byte[] decoded = Base64.decode(cert.getValue());
-                final CertificateFactory cf = CertificateFactory.getInstance("X.509");
+                final Collection<java.security.cert.X509Certificate> chain = new ArrayList<>();
+                for (X509Certificate cert : key.getKeyInfo().getX509Datas().get(0).getX509Certificates()) {
 
-                final ByteArrayInputStream bais = new ByteArrayInputStream(decoded);
-                final Certificate x509cert = cf.generateCertificate(bais);
-                bais.close();
+                    final byte[] decoded = Base64.decode(cert.getValue());
+                    final CertificateFactory cf = CertificateFactory.getInstance("X.509");
 
-                final PublicKey publickKey = x509cert.getPublicKey();
+                    final ByteArrayInputStream bais = new ByteArrayInputStream(decoded);
+                    chain.add(java.security.cert.X509Certificate.class.cast(cf.generateCertificate(bais)));
+                    bais.close();
+                }
 
                 switch (key.getUse()) {
                     case ENCRYPTION:
-                        log.debug("Found encryption certificate (not yet supported) ...\n{}", cert.getValue());
+                        log.debug("Found encryption certificate (not yet supported) ...\n");
                         break;
                     case SIGNING:
-                        log.debug("Found signing certificate ...\n{}", cert.getValue());
-                        log.debug("PublicKey: {}", publickKey.toString());
-                        signing.setPublicKey(publickKey);
+                        log.debug("Instantiate signature validators chain");
+                        signatureValidatorChain.setChain(chain);
                         break;
                     default:
                     //ignore
@@ -103,8 +99,6 @@ public class IdP {
                 log.warn("Error retrieving X509Certificate from IdP metadata", e);
             }
         }
-
-        signatureValidator = new SignatureValidator(signing);
     }
 
     public String getId() {
@@ -123,7 +117,7 @@ public class IdP {
         return sloBindings.get(binding.getBinding());
     }
 
-    public SignatureValidator getSignatureValidator() {
-        return signatureValidator;
+    public SignatureValidatorChain getSignatureValidatorChain() {
+        return signatureValidatorChain;
     }
 }

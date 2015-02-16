@@ -56,7 +56,7 @@ public class SP {
 
     private final EntityDescriptor spEntityDescriptor;
 
-    private final boolean wantAssertionsSigned = false;
+    private final boolean wantAssertionsSigned = true;
 
     private final boolean authnRequestsSigned = true;
 

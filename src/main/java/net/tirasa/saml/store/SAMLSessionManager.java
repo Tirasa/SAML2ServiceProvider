@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package net.tirasa.saml.store;
 
 import java.util.ArrayList;
@@ -45,19 +44,21 @@ public class SAMLSessionManager {
         return instance;
     }
 
-    public void createSAMLSession(HttpSession session,
-            SAMLMessageContext<Response, SAMLObject, NameID> samlMessageContext) {
-        List<Assertion> assertions = samlMessageContext.getInboundSAMLMessage().getAssertions();
-        NameID nameId = (assertions.size() != 0 && assertions.get(0).getSubject() != null) ? assertions.get(0).
-                getSubject().getNameID() : null;
-        String nameValue = nameId == null ? null : nameId.getValue();
-        SAMLSessionInfo samlSessionInfo = new SAMLSessionInfo(nameValue,
+    public void createSAMLSession(
+            final HttpSession session,
+            final SAMLMessageContext<Response, SAMLObject, NameID> samlMessageContext) {
+        final List<Assertion> assertions = samlMessageContext.getInboundSAMLMessage().getAssertions();
+        final NameID nameId = (assertions.isEmpty() || assertions.get(0).getSubject() == null)
+                ? null : assertions.get(0).getSubject().getNameID();
+        final String nameValue = nameId == null ? null : nameId.getValue();
+        final SAMLSessionInfo samlSessionInfo = new SAMLSessionInfo(
+                nameValue,
                 getAttributesMap(getSAMLAttributes(assertions)),
                 getSAMLSessionValidTo(assertions));
         session.setAttribute(SAML_SESSION_INFO, samlSessionInfo);
     }
 
-    public boolean isSAMLSessionValid(HttpSession session) {
+    public boolean isSAMLSessionValid(final HttpSession session) {
         SAMLSessionInfo samlSessionInfo = (SAMLSessionInfo) session.getAttribute(SAML_SESSION_INFO);
         if (samlSessionInfo == null) {
             return false;
@@ -65,12 +66,12 @@ public class SAMLSessionManager {
         return samlSessionInfo.getValidTo() == null || new Date().before(samlSessionInfo.getValidTo());
     }
 
-    public void destroySAMLSession(HttpSession session) {
+    public void destroySAMLSession(final HttpSession session) {
         session.removeAttribute(SAML_SESSION_INFO);
     }
 
-    public List<Attribute> getSAMLAttributes(List<Assertion> assertions) {
-        List<Attribute> attributes = new ArrayList<Attribute>();
+    public List<Attribute> getSAMLAttributes(final List<Assertion> assertions) {
+        final List<Attribute> attributes = new ArrayList<>();
         if (assertions != null) {
             for (Assertion assertion : assertions) {
                 for (AttributeStatement attributeStatement : assertion.getAttributeStatements()) {
@@ -83,7 +84,7 @@ public class SAMLSessionManager {
         return attributes;
     }
 
-    public Date getSAMLSessionValidTo(List<Assertion> assertions) {
+    public Date getSAMLSessionValidTo(final List<Assertion> assertions) {
         org.joda.time.DateTime sessionNotOnOrAfter = null;
         if (assertions != null) {
             for (Assertion assertion : assertions) {
@@ -93,11 +94,11 @@ public class SAMLSessionManager {
             }
         }
 
-        return sessionNotOnOrAfter != null ? sessionNotOnOrAfter.toCalendar(Locale.getDefault()).getTime() : null;
+        return sessionNotOnOrAfter == null ? null:sessionNotOnOrAfter.toCalendar(Locale.getDefault()).getTime();
     }
 
-    public Map<String, String> getAttributesMap(List<Attribute> attributes) {
-        Map<String, String> result = new HashMap<String, String>();
+    public Map<String, String> getAttributesMap(final List<Attribute> attributes) {
+        final Map<String, String> result = new HashMap<>();
         for (Attribute attribute : attributes) {
             result.put(attribute.getName(), attribute.getDOM().getTextContent());
         }

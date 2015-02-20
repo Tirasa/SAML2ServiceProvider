@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package net.tirasa.saml.util;
 
 public class Constants {
@@ -46,8 +45,10 @@ public class Constants {
 
     public final static String AUTHN_REQUEST = "AuthnRequest";
 
-    public final static String RELAY = "relay";
+    public final static String RELAY = "RelayState";
 
     public final static String SAML_AUTHN_RESPONSE_PARAMETER_NAME = "SAMLResponse";
+
+    public final static String SAML_AUTHN_REQUEST_PARAMETER_NAME = "SAMLRequest";
 
 }

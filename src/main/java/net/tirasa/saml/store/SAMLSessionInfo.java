@@ -13,21 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package net.tirasa.saml.store;
 
 import java.util.Date;
 import java.util.Map;
+import org.apache.commons.lang.builder.ReflectionToStringBuilder;
+import org.apache.commons.lang.builder.ToStringStyle;
 
 public class SAMLSessionInfo {
 
-    private String nameId;
+    private final String nameId;
 
-    private Map<String, String> attributes;
+    private final Map<String, String> attributes;
 
-    private Date validTo;
+    private final Date validTo;
 
-    public SAMLSessionInfo(String nameId, Map<String, String> attributes, Date validTo) {
+    public SAMLSessionInfo(final String nameId, final Map<String, String> attributes, final Date validTo) {
         this.nameId = nameId;
         this.attributes = attributes;
         this.validTo = validTo;
@@ -43,5 +44,10 @@ public class SAMLSessionInfo {
 
     public Date getValidTo() {
         return validTo;
+    }
+
+    @Override
+    public String toString() {
+        return ReflectionToStringBuilder.reflectionToString(this, ToStringStyle.MULTI_LINE_STYLE);
     }
 }

@@ -112,8 +112,9 @@ public class SP {
                 getBuilder(SingleLogoutService.DEFAULT_ELEMENT_NAME);
 
         final SingleLogoutService sloHttpService = sloHttpServiceBuilder.buildObject();
-        sloHttpService.setBinding(Binding.REDIRECT.getBinding());
+        sloHttpService.setBinding(Binding.POST.getBinding());
         sloHttpService.setLocation(Properties.getString(Constants.LOGOUT));
+        sloHttpService.setResponseLocation(Properties.getString(Constants.LOGOUT));
         spSSODescriptor.getSingleLogoutServices().add(sloHttpService);
 
         @SuppressWarnings("unchecked")

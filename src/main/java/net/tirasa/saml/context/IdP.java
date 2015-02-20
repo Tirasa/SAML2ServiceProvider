@@ -47,7 +47,7 @@ public class IdP {
 
     private final Map<String, Endpoint> ssoBindings = new HashMap<>();
 
-    private final Map<String, Endpoint> sloBindings = new HashMap<>();
+    private final Map<String, SingleLogoutService> sloBindings = new HashMap<>();
 
     private final SignatureValidatorChain signatureValidatorChain;
 
@@ -65,7 +65,8 @@ public class IdP {
         }
 
         for (SingleLogoutService slo : idpdescriptor.getSingleLogoutServices()) {
-            log.debug("[{}] Add SLO binding {}({})", new Object[] { this.id, slo.getBinding(), slo.getLocation() });
+            log.debug("[{}] Add SLO binding '{}'\n\tLocation: '{}'\n\tResponse Location: '{}'",
+                    new Object[] { this.id, slo.getBinding(), slo.getLocation(), slo.getResponseLocation() });
             sloBindings.put(slo.getBinding(), slo);
         }
 

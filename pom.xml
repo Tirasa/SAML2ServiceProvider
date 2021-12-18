@@ -57,7 +57,7 @@ limitations under the License.
     <opensaml.version>2.6.1</opensaml.version>
     <servlet.version>2.5</servlet.version>
     <slf4j.version>1.7.7</slf4j.version>
-    <log4j.version>2.16.0</log4j.version>
+    <log4j.version>2.17.0</log4j.version>
     <disruptor.version>3.3.0</disruptor.version>
     <commons.logging.version>1.2</commons.logging.version>
     <xml.apis.version>1.4.01</xml.apis.version>
